@@ -194,7 +194,7 @@ const createInvite = () => {
   /* =======================
      RENDER
   ======================= */
-  return (
+   return (
     <div style={{ position: "relative" }}>
       <Toolbar
         color={color}
@@ -219,24 +219,26 @@ const createInvite = () => {
 
       {/* Other users' cursors */}
       {Object.entries(cursors).map(([id, c]) => {
-  const { x, y } = worldToScreen(c.x, c.y);
+        const { x, y } = worldToScreen(c.x, c.y);
 
-  return (
-    <div
-      key={id}
-      style={{
-        position: "absolute",
-        left: x,
-        top: y,
-        width: 8,
-        height: 8,
-        background: "red",
-        borderRadius: "50%",
-        pointerEvents: "none"
-      }}
-    />
+        return (
+          <div
+            key={id}
+            style={{
+              position: "absolute",
+              left: x,
+              top: y,
+              width: 8,
+              height: 8,
+              background: "red",
+              borderRadius: "50%",
+              pointerEvents: "none"
+            }}
+          />
+        );
+      })}
+    </div>
   );
-})}
-
+}
 
 export default Whiteboard;
