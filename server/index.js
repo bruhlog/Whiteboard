@@ -69,10 +69,14 @@ io.on("connection", (socket) => {
     !board.members.includes(socket.user.id)
   ) {
     const invite = invites[inviteToken];
-    if (!invite || invite.roomId !== roomId) {
-      socket.emit("error", "Invalid invite");
-      return;
-    }
+if (
+  !invite ||
+  invite.roomId !== roomId ||
+  Date.now() - invite.createdAt > 1000 * 60 * 60 // 1 hour
+) {
+  socket.emit("error", "Invalid or expired invite");
+  return;
+}
     board.members.push(socket.user.id);
   }
 
@@ -89,6 +93,18 @@ io.on("connection", (socket) => {
 
   socket.emit("rebuild", rooms[roomId].strokes);
 });
+
+socket.on("cursor", ({ roomId, x, y }) => {
+  const board = boards[roomId];
+  if (!board || !board.members.includes(socket.user.id)) return;
+
+  socket.to(roomId).emit("cursor", {
+    id: socket.id,
+    x,
+    y
+  });
+});
+
 const crypto = require("crypto");
 
 socket.on("create-invite", (roomId, callback) => {
@@ -144,13 +160,17 @@ socket.on("draw-end", (roomId) => {
 
 
 socket.on("draw-move", ({ roomId, x, y }) => {
+  const board = boards[roomId];
+  if (!board || !board.members.includes(socket.user.id)) return;
+
   const room = rooms[roomId];
-  if (!room) return;
+  if (!room || room.strokes.length === 0) return;
 
   room.strokes[room.strokes.length - 1].points.push({ x, y });
 
   socket.to(roomId).emit("draw-move", { x, y });
 });
+
 socket.on("undo", (roomId) => {
   const room = rooms[roomId];
   if (!room || room.strokes.length === 0) return;
@@ -173,8 +193,12 @@ socket.on("redo", (roomId) => {
 
 
   socket.on("clear-board", (roomId) => {
-    io.to(roomId).emit("clear-board");
-  });
+  const board = boards[roomId];
+  if (!board || !board.members.includes(socket.user.id)) return;
+
+  io.to(roomId).emit("clear-board");
+});
+
 
   socket.on("disconnect", () => {
     console.log("Disconnected:", socket.id);

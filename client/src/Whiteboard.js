@@ -170,6 +170,8 @@ const createInvite = () => {
         clear={clearBoard}
         undo={undo}
         redo={redo}
+        save={saveBoard}
+        invite={createInvite}
       />
 
       <canvas
