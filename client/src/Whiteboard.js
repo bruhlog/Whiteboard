@@ -10,6 +10,9 @@ const currentStrokeRef = useRef(null);
   const [drawing, setDrawing] = useState(false);
   const [color, setColor] = useState("#000000");
   const [size, setSize] = useState(3);
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 5;
+const ZOOM_SPEED = 0.001;
 
   const isPanningRef = useRef(false);
   const lastPanPointRef = useRef({ x: 0, y: 0 });
@@ -98,6 +101,46 @@ socket.on("draw-move", ({ x, y }) => {
   return () => {
     window.removeEventListener("keydown", handleKeyDown);
     window.removeEventListener("keyup", handleKeyUp);
+  };
+}, []);
+useEffect(() => {
+  const canvas = canvasRef.current;
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+
+    const cam = cameraRef.current;
+
+    // Mouse position in screen space
+    const mouseX = e.offsetX;
+    const mouseY = e.offsetY;
+
+    // Convert mouse to world coords BEFORE zoom
+    const worldBefore = screenToWorld(mouseX, mouseY);
+
+    // Calculate zoom factor
+    let newScale =
+      cam.scale * (1 - e.deltaY * ZOOM_SPEED);
+
+    newScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newScale));
+
+    cam.scale = newScale;
+
+    // Convert mouse to world coords AFTER zoom
+    const worldAfter = screenToWorld(mouseX, mouseY);
+
+    // Adjust camera so world point stays under cursor
+    cam.x += (worldAfter.x - worldBefore.x) * cam.scale;
+    cam.y += (worldAfter.y - worldBefore.y) * cam.scale;
+
+    // Redraw with new camera
+    redrawAll(strokesCacheRef.current);
+  };
+
+  canvas.addEventListener("wheel", handleWheel, { passive: false });
+
+  return () => {
+    canvas.removeEventListener("wheel", handleWheel);
   };
 }, []);
 
