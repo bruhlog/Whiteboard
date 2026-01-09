@@ -201,7 +201,7 @@ const worldToScreen = (x, y) => {
     redrawAll(
       // ⚠️ IMPORTANT: use latest strokes from server
       // We rely on last rebuild cache
-      roomsCacheRef.current || []
+      strokesCacheRef.current
     );
     return;
   }
