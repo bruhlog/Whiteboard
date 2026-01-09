@@ -6,7 +6,8 @@ function Toolbar({
   clear,
   undo,
   redo,
-  save
+  save,
+  invite
 }) {
   return (
     <div
@@ -38,6 +39,7 @@ function Toolbar({
       <button onClick={redo}>Redo</button>
       <button onClick={clear}>Clear</button>
       <button onClick={save}>Save</button>
+      <button onClick={invite}>Invite</button>
 
     </div>
   );
