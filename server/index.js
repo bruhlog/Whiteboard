@@ -23,7 +23,9 @@ const loadBoardFromFile = (roomId) => {
   return JSON.parse(fs.readFileSync(file));
 };
 
-
+app.get("/", (req, res) => {
+  res.send("Whiteboard server running");
+});
 const app = express();
 app.use(cors());
 
