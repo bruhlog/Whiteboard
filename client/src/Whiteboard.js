@@ -12,6 +12,11 @@ function Whiteboard({ roomId }) {
 
   // Cursor positions of other users
   const [cursors, setCursors] = useState({});
+  const cameraRef = useRef({
+  x: 0,
+  y: 0,
+  scale: 1
+  });
 
   /* =======================
      CANVAS INITIALIZATION
@@ -25,18 +30,18 @@ function Whiteboard({ roomId }) {
     ctx.lineCap = "round";
     ctxRef.current = ctx;
 
-    /* ---- DRAW EVENTS ---- */
     socket.on("draw-start", ({ x, y, color, size }) => {
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.moveTo(x, y);
-    });
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  ctx.moveTo(x, y);
+});
 
-    socket.on("draw-move", ({ x, y }) => {
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    });
+socket.on("draw-move", ({ x, y }) => {
+  ctx.lineTo(x, y);
+  ctx.stroke();
+});
+
 
     /* ---- UNDO / REDO REBUILD ---- */
     socket.on("rebuild", (strokes) => {
@@ -65,35 +70,64 @@ function Whiteboard({ roomId }) {
     };
   }, []);
 
+  const screenToWorld = (x, y) => {
+  const cam = cameraRef.current;
+  return {
+    x: (x - cam.x) / cam.scale,
+    y: (y - cam.y) / cam.scale
+  };
+};
+
+const worldToScreen = (x, y) => {
+  const cam = cameraRef.current;
+  return {
+    x: x * cam.scale + cam.x,
+    y: y * cam.scale + cam.y
+  };
+};
+
+
   /* =======================
      REDRAW ALL STROKES
   ======================= */
   const redrawAll = (strokes) => {
-    const canvas = canvasRef.current;
-    const ctx = ctxRef.current;
+  const canvas = canvasRef.current;
+  const ctx = ctxRef.current;
+  const cam = cameraRef.current;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // reset
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    strokes.forEach((stroke) => {
-      ctx.beginPath();
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
+  ctx.setTransform(
+    cam.scale,
+    0,
+    0,
+    cam.scale,
+    cam.x,
+    cam.y
+  );
 
-      stroke.points.forEach((p, index) => {
-        if (index === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      });
+  strokes.forEach((stroke) => {
+    ctx.beginPath();
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.size;
 
-      ctx.stroke();
+    stroke.points.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
     });
-  };
+
+    ctx.stroke();
+  });
+};
 
   /* =======================
      LOCAL DRAWING
   ======================= */
   const startDrawing = (e) => {
-    const x = e.nativeEvent.offsetX;
-    const y = e.nativeEvent.offsetY;
+    const { offsetX, offsetY } = e.nativeEvent;
+    const { x, y } = screenToWorld(offsetX, offsetY);
+
 
     ctxRef.current.beginPath();
     ctxRef.current.strokeStyle = color;
@@ -112,19 +146,19 @@ function Whiteboard({ roomId }) {
   };
 
   const draw = (e) => {
-    const x = e.nativeEvent.offsetX;
-    const y = e.nativeEvent.offsetY;
+  const { offsetX, offsetY } = e.nativeEvent;
+  const { x, y } = screenToWorld(offsetX, offsetY);
 
-    // Cursor broadcast (even if not drawing)
-    socket.emit("cursor", { roomId, x, y });
+  socket.emit("cursor", { roomId, x, y });
 
-    if (!drawing) return;
+  if (!drawing) return;
 
-    ctxRef.current.lineTo(x, y);
-    ctxRef.current.stroke();
+  ctxRef.current.lineTo(x, y);
+  ctxRef.current.stroke();
 
-    socket.emit("draw-move", { roomId, x, y });
-  };
+  socket.emit("draw-move", { roomId, x, y });
+};
+
 
   const stopDrawing = () => {
   setDrawing(false);
@@ -184,23 +218,25 @@ const createInvite = () => {
       />
 
       {/* Other users' cursors */}
-      {Object.entries(cursors).map(([id, c]) => (
-        <div
-          key={id}
-          style={{
-            position: "absolute",
-            left: c.x,
-            top: c.y,
-            width: 8,
-            height: 8,
-            background: "red",
-            borderRadius: "50%",
-            pointerEvents: "none"
-          }}
-        />
-      ))}
-    </div>
+      {Object.entries(cursors).map(([id, c]) => {
+  const { x, y } = worldToScreen(c.x, c.y);
+
+  return (
+    <div
+      key={id}
+      style={{
+        position: "absolute",
+        left: x,
+        top: y,
+        width: 8,
+        height: 8,
+        background: "red",
+        borderRadius: "50%",
+        pointerEvents: "none"
+      }}
+    />
   );
-}
+})}
+
 
 export default Whiteboard;
