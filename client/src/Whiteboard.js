@@ -5,10 +5,14 @@ import Toolbar from "./Toolbar";
 function Whiteboard({ roomId }) {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
+const strokesCacheRef = useRef([]);
 
   const [drawing, setDrawing] = useState(false);
   const [color, setColor] = useState("#000000");
   const [size, setSize] = useState(3);
+
+  const isPanningRef = useRef(false);
+  const lastPanPointRef = useRef({ x: 0, y: 0 });
 
   // Cursor positions of other users
   const [cursors, setCursors] = useState({});
@@ -45,8 +49,10 @@ socket.on("draw-move", ({ x, y }) => {
 
     /* ---- UNDO / REDO REBUILD ---- */
     socket.on("rebuild", (strokes) => {
-      redrawAll(strokes);
-    });
+  strokesCacheRef.current = strokes;
+  redrawAll(strokes);
+});
+
 
     /* ---- CLEAR BOARD ---- */
     socket.on("clear-board", () => {
@@ -69,6 +75,31 @@ socket.on("draw-move", ({ x, y }) => {
       socket.off("cursor");
     };
   }, []);
+
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    if (e.code === "Space") {
+      e.preventDefault();
+      isPanningRef.current = true;
+    }
+  };
+
+  const handleKeyUp = (e) => {
+    if (e.code === "Space") {
+      isPanningRef.current = false;
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keyup", handleKeyUp);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+    window.removeEventListener("keyup", handleKeyUp);
+  };
+}, []);
+
+
 
   const screenToWorld = (x, y) => {
   const cam = cameraRef.current;
@@ -125,28 +156,57 @@ const worldToScreen = (x, y) => {
      LOCAL DRAWING
   ======================= */
   const startDrawing = (e) => {
-    const { offsetX, offsetY } = e.nativeEvent;
-    const { x, y } = screenToWorld(offsetX, offsetY);
-
-
-    ctxRef.current.beginPath();
-    ctxRef.current.strokeStyle = color;
-    ctxRef.current.lineWidth = size;
-    ctxRef.current.moveTo(x, y);
-
-    socket.emit("draw-start", {
-      roomId,
-      x,
-      y,
-      color,
-      size
-    });
-
-    setDrawing(true);
-  };
-
-  const draw = (e) => {
   const { offsetX, offsetY } = e.nativeEvent;
+
+  // 🟡 PAN MODE
+  if (isPanningRef.current) {
+    lastPanPointRef.current = { x: offsetX, y: offsetY };
+    return;
+  }
+
+  // ✏️ DRAW MODE
+  const { x, y } = screenToWorld(offsetX, offsetY);
+
+  ctxRef.current.beginPath();
+  ctxRef.current.strokeStyle = color;
+  ctxRef.current.lineWidth = size;
+  ctxRef.current.moveTo(x, y);
+
+  socket.emit("draw-start", {
+    roomId,
+    x,
+    y,
+    color,
+    size
+  });
+
+  setDrawing(true);
+};
+
+
+ const draw = (e) => {
+  const { offsetX, offsetY } = e.nativeEvent;
+
+  // 🟡 PAN MODE
+  if (isPanningRef.current) {
+    const dx = offsetX - lastPanPointRef.current.x;
+    const dy = offsetY - lastPanPointRef.current.y;
+
+    cameraRef.current.x += dx;
+    cameraRef.current.y += dy;
+
+    lastPanPointRef.current = { x: offsetX, y: offsetY };
+
+    // redraw everything with new camera
+    redrawAll(
+      // ⚠️ IMPORTANT: use latest strokes from server
+      // We rely on last rebuild cache
+      roomsCacheRef.current || []
+    );
+    return;
+  }
+
+  // ✏️ DRAW MODE
   const { x, y } = screenToWorld(offsetX, offsetY);
 
   socket.emit("cursor", { roomId, x, y });
@@ -160,10 +220,11 @@ const worldToScreen = (x, y) => {
 };
 
 
+
   const stopDrawing = () => {
   setDrawing(false);
-  socket.emit("draw-end", roomId);
 };
+
 const createInvite = () => {
   socket.emit("create-invite", roomId, (token) => {
     const link = `${window.location.origin}/?room=${roomId}&invite=${token}`;
