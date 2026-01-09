@@ -30,8 +30,8 @@ const ZOOM_SPEED = 0.001;
   ======================= */
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.width = 800;
-    canvas.height = 500;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 60;
 
     const ctx = canvas.getContext("2d");
     ctx.lineCap = "round";
@@ -332,9 +332,10 @@ const createInvite = () => {
       <canvas
         ref={canvasRef}
         style={{ border: "1px solid black" }}
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={stopDrawing}
+        onPointerDown={startDrawing}
+        onPointerMove={draw}
+        onPointerUp={stopDrawing}
+
         onMouseLeave={stopDrawing}
       />
 
