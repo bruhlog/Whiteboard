@@ -5,12 +5,14 @@ import socket from "./socket";
 function App() {
   const [roomId, setRoomId] = useState("");
   const [joined, setJoined] = useState(false);
-
-  const joinRoom = () => {
-    if (!roomId) return;
-    socket.emit("join-room", roomId);
-    setJoined(true);
-  };
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get("invite");
+  
+  
+socket.emit("join-room", {
+  roomId,
+  inviteToken
+});
 
   return (
     <div style={{ padding: 20 }}>

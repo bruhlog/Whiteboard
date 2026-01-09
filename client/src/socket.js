@@ -1,8 +1,12 @@
 import { io } from "socket.io-client";
+import { getUser } from "./auth";
 
-const socket = io(
-  process.env.REACT_APP_SOCKET_URL
-);
+const user = getUser();
+const socket = io(process.env.REACT_APP_SOCKET_URL, {
+  auth: {
+    user
+  }
+});
 
 
 export default socket;

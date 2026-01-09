@@ -130,6 +130,12 @@ function Whiteboard({ roomId }) {
   setDrawing(false);
   socket.emit("draw-end", roomId);
 };
+const createInvite = () => {
+  socket.emit("create-invite", roomId, (token) => {
+    const link = `${window.location.origin}/?room=${roomId}&invite=${token}`;
+    alert("Invite link:\n" + link);
+  });
+};
 
 
   /* =======================
