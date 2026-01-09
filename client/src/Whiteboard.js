@@ -6,7 +6,7 @@ function Whiteboard({ roomId }) {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
 const strokesCacheRef = useRef([]);
-
+const currentStrokeRef = useRef(null);
   const [drawing, setDrawing] = useState(false);
   const [color, setColor] = useState("#000000");
   const [size, setSize] = useState(3);
@@ -56,8 +56,10 @@ socket.on("draw-move", ({ x, y }) => {
 
     /* ---- CLEAR BOARD ---- */
     socket.on("clear-board", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
+  strokesCacheRef.current = [];
+  redrawAll([]);
+});
+
 
     /* ---- CURSOR PRESENCE ---- */
     socket.on("cursor", ({ id, x, y }) => {
@@ -167,10 +169,17 @@ const worldToScreen = (x, y) => {
   // ✏️ DRAW MODE
   const { x, y } = screenToWorld(offsetX, offsetY);
 
-  ctxRef.current.beginPath();
-  ctxRef.current.strokeStyle = color;
-  ctxRef.current.lineWidth = size;
-  ctxRef.current.moveTo(x, y);
+  currentStrokeRef.current = {
+  points: [{ x, y }],
+  color,
+  size
+};
+
+ctxRef.current.beginPath();
+ctxRef.current.strokeStyle = color;
+ctxRef.current.lineWidth = size;
+ctxRef.current.moveTo(x, y);
+
 
   socket.emit("draw-start", {
     roomId,
@@ -214,7 +223,10 @@ const worldToScreen = (x, y) => {
   if (!drawing) return;
 
   ctxRef.current.lineTo(x, y);
-  ctxRef.current.stroke();
+ctxRef.current.stroke();
+
+currentStrokeRef.current.points.push({ x, y });
+
 
   socket.emit("draw-move", { roomId, x, y });
 };
@@ -222,8 +234,13 @@ const worldToScreen = (x, y) => {
 
 
   const stopDrawing = () => {
+  if (currentStrokeRef.current) {
+    strokesCacheRef.current.push(currentStrokeRef.current);
+    currentStrokeRef.current = null;
+  }
   setDrawing(false);
 };
+
 
 const createInvite = () => {
   socket.emit("create-invite", roomId, (token) => {
